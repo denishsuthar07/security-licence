@@ -3,46 +3,62 @@ import axios from 'axios';
 import './App.css';
 
 function App() {
-  const [responseData, setResponseData] = useState('');
+  const [responses, setResponses] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const licenseNumbers = [
+    'Z48-116-20S',
+    '667-596-21S',
+    'Z47-015-80S',
+    'Z18-578-10S',
+    'Z49-041-00S',
+  ];
 
   const callApi = async () => {
     const apiUrl =
       'https://www.lars.police.vic.gov.au/LARS/LARS.asp?File=/Components/Screens/PSINFP03/PSINFP03.asp?Process=SEARCH';
 
-    const xmlPayload = `
-      <XML>
-        <HEADER>
-          <PROCESS>SEARCH</PROCESS>
-          <TIMESTAMP>20241119100226</TIMESTAMP>
-          <SECURITYTOKEN>A63F4D6C-601D-407B-92E2-0997B5407E76</SECURITYTOKEN>
-        </HEADER>
-        <PAYLOAD>
-          <GNDTLE01 id='idSearchPane'>
-            <CONTROL name='dropdownlist'>%</CONTROL>
-            <CONTROL name='searchtext'></CONTROL>
-            <CONTROL name='SearchCriteriadropdownlist'>X</CONTROL>
-            <CONTROL name='SearchAuthNb'>Z48-116-20S</CONTROL>
-            <CONTROL name='Index'></CONTROL>
-            <CONTROL name='Page'>1</CONTROL>
-          </GNDTLE01>
-        </PAYLOAD>
-      </XML>
-    `;
+    setResponses([]);
+    setError('');
+    setLoading(true);
 
     try {
-      setLoading(true);
-      setError('');
+      const responsesArray = [];
+      for (const licenseNumber of licenseNumbers) {
+        const xmlPayload = `
+          <XML>
+            <HEADER>
+              <PROCESS>SEARCH</PROCESS>
+              <TIMESTAMP>${new Date()
+                .toISOString()
+                .replace(/[-:.TZ]/g, '')
+                .slice(0, 14)}</TIMESTAMP>
+              <SECURITYTOKEN>A63F4D6C-601D-407B-92E2-0997B5407E76</SECURITYTOKEN>
+            </HEADER>
+            <PAYLOAD>
+              <GNDTLE01 id='idSearchPane'>
+                <CONTROL name='dropdownlist'>%</CONTROL>
+                <CONTROL name='searchtext'></CONTROL>
+                <CONTROL name='SearchCriteriadropdownlist'>X</CONTROL>
+                <CONTROL name='SearchAuthNb'>${licenseNumber}</CONTROL>
+                <CONTROL name='Index'></CONTROL>
+                <CONTROL name='Page'>1</CONTROL>
+              </GNDTLE01>
+            </PAYLOAD>
+          </XML>
+        `;
 
-      const response = await axios.post(apiUrl, xmlPayload, {
-        headers: {
-          'Content-Type': 'text/xml',
-          Accept: 'application/xml',
-        },
-      });
+        const response = await axios.post(apiUrl, xmlPayload, {
+          headers: {
+            'Content-Type': 'text/xml',
+            Accept: 'application/xml',
+          },
+        });
 
-      setResponseData(response.data);
+        responsesArray.push({ licenseNumber, data: response.data });
+      }
+      setResponses(responsesArray);
     } catch (err) {
       setError(err.response ? err.response.statusText : err.message);
     } finally {
@@ -52,15 +68,18 @@ function App() {
 
   return (
     <div className="App">
-      <button onClick={callApi}>Call API</button>
-      {loading && <p>Loading...</p>}
+      <button onClick={callApi} disabled={loading}>
+        {loading ? 'Loading...' : 'Call API'}
+      </button>
       {error && <p style={{ color: 'red' }}>Error: {error}</p>}
-      {responseData && (
-        <div>
-          <h2>Response:</h2>
-          <pre>{responseData}</pre>
-        </div>
-      )}
+      <div>
+        {responses.map((response, index) => (
+          <div key={index} className="response-block">
+            <h3>License Number: {response.licenseNumber}</h3>
+            <pre>{response.data}</pre>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
